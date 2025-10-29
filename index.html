@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Analisis Transformasi Digital</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Libraries for export functionality -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            box-sizing: border-box;
+        }
+        .flowchart-box {
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px;
+            background: #eff6ff;
+            text-align: center;
+            min-width: 150px;
+        }
+        .arrow {
+            font-size: 24px;
+            color: #3b82f6;
+            text-align: center;
+            margin: 4px 0;
+        }
+        .print-section {
+            page-break-after: always;
+        }
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background-color: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        @media print {
+            .no-print { display: none; }
+            .print-section { page-break-after: always; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-full">
+    <header class="bg-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">Aplikasi Analisis Transformasi Digital</h1>
+                    <p class="text-gray-600 mt-2">Analisis Prosedur Manual vs Berbasis TI</p>
+                </div>
+                <div id="connectionStatus" class="flex items-center gap-2 px-3 py-2 rounded-lg">
+                    <div id="statusIndicator" class="w-3 h-3 rounded-full"></div>
+                    <span id="statusText" class="text-sm font-medium"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-8">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Pilih Mahasiswa dan Prosedur</h2>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <label for="studentSelect" class="block text-sm font-medium text-gray-700 mb-2">Pilih Mahasiswa:</label>
+                    <select id="studentSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Pilih Mahasiswa --</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="procedureInfo" class="block text-sm font-medium text-gray-700 mb-2">Prosedur yang Akan Dianalisis:</label>
+                    <div id="procedureInfo" class="p-3 bg-gray-50 border border-gray-300 rounded-lg min-h-[52px] flex items-center">
+                        <span class="text-gray-500">Pilih mahasiswa terlebih dahulu</span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="analyzeBtn" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                Mulai Analisis
+            </button>
+        </div>
+
+        <!-- Offline Page -->
+        <div id="offlinePage" class="hidden">
+            <div class="bg-white rounded-lg shadow-lg p-8 text-center">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Tidak Ada Koneksi Internet</h2>
+                    <p class="text-gray-600 mb-6">Aplikasi membutuhkan koneksi internet untuk berfungsi dengan optimal. Silakan periksa koneksi Anda dan coba lagi.</p>
+                </div>
+                
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <div class="flex items-start">
+                        <div class="text-left">
+                            <h3 class="text-sm font-medium text-yellow-800">Mode Offline Terbatas</h3>
+                            <p class="text-sm text-yellow-700 mt-1">Beberapa fitur mungkin tidak tersedia dalam mode offline. Data yang telah dimuat sebelumnya masih dapat diakses.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <button id="retryConnection" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">
+                        Coba Lagi
+                    </button>
+                    
+                    <div class="text-sm text-gray-500">
+                        <p>Tips untuk mengatasi masalah koneksi:</p>
+                        <ul class="mt-2 space-y-1 text-left max-w-md mx-auto">
+                            <li>• Periksa koneksi WiFi atau data seluler</li>
+                            <li>• Restart router atau modem</li>
+                            <li>• Coba refresh halaman (F5)</li>
+                            <li>• Hubungi penyedia layanan internet</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="analysisResult" class="hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-gray-800">Hasil Analisis</h2>
+                    <div class="no-print">
+                        <!-- Desktop Layout -->
+                        <div class="hidden sm:flex flex-wrap gap-2">
+                            <button id="exportExcelBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                Export Excel
+                            </button>
+                        </div>
+                        
+                        <!-- Mobile Layout -->
+                        <div class="sm:hidden">
+                            <button id="exportExcelBtnMobile" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 flex items-center gap-2 text-sm w-full justify-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                Export Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="studentInfo" class="bg-blue-50 p-4 rounded-lg mb-6"></div>
+                
+                <nav class="no-print mb-6">
+                    <div class="flex flex-wrap gap-2">
+                        <button class="tab-btn bg-blue-600 text-white px-4 py-2 rounded-lg" data-tab="flowchart">1. Flowchart</button>
+                        <button class="tab-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg" data-tab="problems">2. Masalah & Kendala</button>
+                        <button class="tab-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg" data-tab="technology">3. Teknologi</button>
+                        <button class="tab-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg" data-tab="impact">4. Dampak</button>
+                        <button class="tab-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg" data-tab="conclusion">5. Kesimpulan</button>
+                    </div>
+                </nav>
+
+                <div id="tabContent">
+                    <div id="flowchart" class="tab-content"></div>
+                    <div id="problems" class="tab-content hidden"></div>
+                    <div id="technology" class="tab-content hidden"></div>
+                    <div id="impact" class="tab-content hidden"></div>
+                    <div id="conclusion" class="tab-content hidden"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-white py-8 mt-12">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row items-center justify-between">
+                <div class="flex items-center mb-4 md:mb-0">
+                    <img src="https://iili.io/Kh6lMBI.webp" alt="Logo" class="w-12 h-12 mr-4 rounded-lg" onerror="this.src=''; this.alt='Logo tidak dapat dimuat'; this.style.display='none';">
+                    <div>
+                        <h3 class="text-lg font-semibold">Aplikasi Analisis Transformasi Digital</h3>
+                        <p class="text-gray-300 text-sm">Sistem Analisis Prosedur Manual vs Berbasis TI</p>
+                    </div>
+                </div>
+                <div class="text-center md:text-right">
+                    <p class="text-gray-300 text-sm">© 2025 Hak Cipta Dilindungi</p>
+                    <p class="text-gray-400 text-xs mt-1">Dikembangkan untuk Analisis Transformasi Digital</p>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-6 pt-6 text-center">
+                <p class="text-gray-400 text-xs">
+                    Aplikasi ini dirancang untuk membantu analisis perbandingan prosedur manual dengan prosedur berbasis teknologi informasi
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Connection status management
+        let isOnline = navigator.onLine;
+        
+        function updateConnectionStatus() {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const connectionStatus = document.getElementById('connectionStatus');
+            const offlinePage = document.getElementById('offlinePage');
+            const mainContent = document.querySelector('main > div:first-child');
+            const analysisResult = document.getElementById('analysisResult');
+            
+            if (isOnline) {
+                statusIndicator.className = 'w-3 h-3 rounded-full bg-green-500 animate-pulse';
+                statusText.textContent = 'Online';
+                statusText.className = 'text-sm font-medium text-green-700';
+                connectionStatus.className = 'flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-200';
+                
+                offlinePage.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                
+                // Show analysis result if it was visible before going offline
+                if (sessionStorage.getItem('analysisVisible') === 'true') {
+                    analysisResult.classList.remove('hidden');
+                }
+            } else {
+                statusIndicator.className = 'w-3 h-3 rounded-full bg-red-500';
+                statusText.textContent = 'Offline';
+                statusText.className = 'text-sm font-medium text-red-700';
+                connectionStatus.className = 'flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200';
+                
+                // Store analysis visibility state
+                if (!analysisResult.classList.contains('hidden')) {
+                    sessionStorage.setItem('analysisVisible', 'true');
+                } else {
+                    sessionStorage.setItem('analysisVisible', 'false');
+                }
+                
+                offlinePage.classList.remove('hidden');
+                mainContent.classList.add('hidden');
+                analysisResult.classList.add('hidden');
+            }
+        }
+        
+        // Listen for online/offline events
+        window.addEventListener('online', () => {
+            isOnline = true;
+            updateConnectionStatus();
+            showNotification('Koneksi internet tersambung kembali!', 'success');
+        });
+        
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            updateConnectionStatus();
+            showNotification('Koneksi internet terputus!', 'error');
+        });
+        
+        // Retry connection button
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('retryConnection').addEventListener('click', function() {
+                // Simulate connection check
+                this.innerHTML = 'Memeriksa koneksi...';
+                this.disabled = true;
+                
+                setTimeout(() => {
+                    isOnline = navigator.onLine;
+                    updateConnectionStatus();
+                    this.innerHTML = 'Coba Lagi';
+                    this.disabled = false;
+                    
+                    if (isOnline) {
+                        showNotification('Koneksi berhasil dipulihkan!', 'success');
+                    } else {
+                        showNotification('Masih tidak ada koneksi. Coba lagi nanti.', 'error');
+                    }
+                }, 2000);
+            });
+            
+            // Initial status update
+            updateConnectionStatus();
+        });
+        
+        // Notification system
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg transition-all duration-300 transform translate-x-full ${
+                type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 100);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        const students = [
+            "Muhammad Fauzi Fathurrohim", "Muhamad Arifin", "Ar Rayyan Nadhif", "Vikri Rohmansyah",
+            "Azka Ramdhani Lesmana", "Faza Qinthara", "Muhammad Rheisya Al Fiqri Hidayat", "Saeful Iman",
+            "Salma Navita Azzahra", "Abidal Abu Muzakar", "Taufik Fajri Hidayatulloh", "Satrio Pratama",
+            "Rizky Imam Andieka", "Nazwa Salsabilla R", "Rhena Fhadilah", "Raisya Zahra Marcha Fatonnah",
+            "Laura Sherlin Agustin", "Davit Noval Kurniawan", "Haykal Sahara Pratama", "Dwi Septian Rizal Siswanto",
+            "Muhammad Fauzan Nur Islam", "Allinski Wiraatmaja", "Nabil Fuaddin", "Rifki Al Azhari", "M Julian Saputra P"
+        ];
+
+        const npmNumbers = [
+            "", "", "250660121025", "",
+            "250660121099", "250660121079", "250660121046", "",
+            "250660121102", "250660121010", "250660121072", "250660121095",
+            "250660121054", "", "", "",
+            "", "250660121065", "250660121042", "",
+            "250660121084", "250660121073", "250660121103", "250660122110", "250660121033"
+        ];
+
+        const oldProcedures = [
+            "Pengisian KRS di loket", "Bimbingan skripsi via tatap muka", "Permintaan surat keterangan via TU",
+            "Pengumpulan proposal penelitian fisik", "Penjualan hanya offline", "Laporan keuangan via Excel",
+            "Konsultasi tatap muka", "Pelaporan stok obat manual", "Pengawasan gizi manual",
+            "Pencatatan pengiriman manual", "Evaluasi sopir via supervisor", "Pengiriman dokumen manual",
+            "Menjaga keamanan rumah manual", "Pengingat tagihan manual", "Masak berdasarkan resep kertas",
+            "Manajemen sampah manual", "Menjemur pakaian manual", "Pemesanan iklan via telepon",
+            "Penjadwalan acara manual", "Penulisan naskah di kertas", "Pemantauan rating manual",
+            "Penyiaran via TV", "Penjualan hasil panen manual", "Prediksi cuaca tradisional", "Pengelolaan air sawah manual"
+        ];
+
+        const newProcedures = [
+            "Portal akademik dengan validasi otomatis", "Platform bimbingan daring terintegrasi", "Aplikasi administrasi akademik online",
+            "Repository digital penelitian", "E-commerce store", "Sistem keuangan berbasis SIPD",
+            "Telemedicine", "Sistem inventori farmasi", "Sistem monitoring gizi digital",
+            "Delivery management app", "Smart driver scoring", "Digital document system",
+            "Smart CCTV", "Aplikasi pengingat otomatis", "Smart recipe app",
+            "Sistem pengelolaan sampah digital", "Smart drying rack sensor", "Online ads management",
+            "Content calendar digital", "AI writing assistant", "Digital analytics dashboard",
+            "Live streaming multi-platform", "Digital marketplace petani", "Aplikasi cuaca pertanian", "Smart water management"
+        ];
+
+        // Populate student dropdown
+        const studentSelect = document.getElementById('studentSelect');
+        students.forEach((student, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            const npmDisplay = npmNumbers[index] ? `${npmNumbers[index]} - ` : '';
+            option.textContent = `${npmDisplay}${student}`;
+            studentSelect.appendChild(option);
+        });
+
+        studentSelect.addEventListener('change', function() {
+            const index = parseInt(this.value);
+            const procedureInfo = document.getElementById('procedureInfo');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            
+            if (index >= 0) {
+                procedureInfo.innerHTML = `
+                    <div>
+                        <p class="font-medium text-gray-800">Prosedur Lama:</p>
+                        <p class="text-gray-600">${oldProcedures[index]}</p>
+                        <p class="font-medium text-gray-800 mt-2">Prosedur Baru:</p>
+                        <p class="text-gray-600">${newProcedures[index]}</p>
+                    </div>
+                `;
+                analyzeBtn.disabled = false;
+            } else {
+                procedureInfo.innerHTML = '<span class="text-gray-500">Pilih mahasiswa terlebih dahulu</span>';
+                analyzeBtn.disabled = true;
+            }
+        });
+
+        document.getElementById('analyzeBtn').addEventListener('click', function() {
+            const index = parseInt(studentSelect.value);
+            if (index >= 0) {
+                if (!isOnline) {
+                    showNotification('Membutuhkan koneksi internet untuk analisis!', 'error');
+                    return;
+                }
+                
+                generateAnalysis(index);
+                document.getElementById('analysisResult').classList.remove('hidden');
+                sessionStorage.setItem('analysisVisible', 'true');
+                document.getElementById('analysisResult').scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+
+        // Tab functionality
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('tab-btn')) {
+                const targetTab = e.target.dataset.tab;
+                
+                // Update tab buttons
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                });
+                e.target.classList.remove('bg-gray-200', 'text-gray-700');
+                e.target.classList.add('bg-blue-600', 'text-white');
+                
+                // Update tab content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(targetTab).classList.remove('hidden');
+            }
+        });
+
+        // Export functionality - Desktop buttons
+        document.getElementById('exportExcelBtn').addEventListener('click', function() {
+            exportToExcel();
+        });
+
+        // Export functionality - Mobile buttons
+        document.getElementById('exportExcelBtnMobile').addEventListener('click', function() {
+            exportToExcel();
+        });
+
+        // Export to Excel
+        function exportToExcel() {
+            const studentIndex = parseInt(studentSelect.value);
+            if (studentIndex < 0) {
+                showNotification('Pilih mahasiswa terlebih dahulu!', 'error');
+                return;
+            }
+            
+            const studentName = students[studentIndex];
+            const oldProc = oldProcedures[studentIndex];
+            const newProc = newProcedures[studentIndex];
+            
+            showNotification('Sedang memproses Excel...', 'success');
+            
+            try {
+                const wb = XLSX.utils.book_new();
+                
+                // Get analysis data
+                const problems = getProblems(oldProc);
+                const tech = getTechnologyStack(newProc);
+                const impacts = getImpactAnalysis(oldProc, newProc);
+                const conclusion = getConclusionAnalysis(oldProc, newProc);
+                
+                // Complete data structure with all sections
+                const npmForExport = npmNumbers[studentIndex] || 'Belum tersedia';
+                const data = [
+                    ['LAPORAN ANALISIS TRANSFORMASI DIGITAL'],
+                    [''],
+                    ['Nama Mahasiswa', studentName],
+                    ['NPM', npmForExport],
+                    ['Tanggal', new Date().toLocaleDateString('id-ID')],
+                    [''],
+                    ['Prosedur Lama', oldProc],
+                    ['Prosedur Baru', newProc],
+                    [''],
+                    ['=== 1. FLOWCHART PROSEDUR ==='],
+                    [''],
+                    ['Prosedur Lama (Manual)', 'Prosedur Baru (Digital)'],
+                    ['MULAI', 'MULAI'],
+                    ...getProcessSteps(oldProc, 'manual').map((step, i) => [
+                        step, 
+                        getProcessSteps(newProc, 'digital')[i] || ''
+                    ]),
+                    ['SELESAI', 'SELESAI'],
+                    [''],
+                    ['Penjelasan Prosedur Lama:', getOldProcedureExplanation(oldProc)],
+                    ['Penjelasan Prosedur Baru:', getNewProcedureExplanation(newProc)],
+                    [''],
+                    ['=== 2. MASALAH DAN KENDALA ==='],
+                    [''],
+                    ['MASALAH PROSEDUR LAMA:'],
+                    ...problems.issues.map(issue => ['• ' + issue]),
+                    [''],
+                    ['KENDALA YANG DIHADAPI:'],
+                    ...problems.constraints.map(constraint => ['• ' + constraint]),
+                    [''],
+                    ['KETIDAKEFISIENAN:'],
+                    ...problems.inefficiencies.map(ineff => [`${ineff.aspect}: ${ineff.description}`]),
+                    [''],
+                    ['PERBEDAAN UTAMA:'],
+                    ['Aspek', 'Prosedur Lama', 'Prosedur Baru'],
+                    ...problems.differences.map(diff => [diff.aspect, diff.old, diff.new]),
+                    [''],
+                    ['=== 3. TEKNOLOGI YANG TERLIBAT ==='],
+                    [''],
+                    ['HARDWARE:'],
+                    ...tech.hardware.map(hw => [`• ${hw.name}: ${hw.description}`]),
+                    [''],
+                    ['SOFTWARE:'],
+                    ...tech.software.map(sw => [`• ${sw.name}: ${sw.description}`]),
+                    [''],
+                    ['JARINGAN:'],
+                    ...tech.network.map(net => [`• ${net.name}: ${net.description}`]),
+                    [''],
+                    ['DATA:'],
+                    ...tech.data.map(dt => [`• ${dt.name}: ${dt.description}`]),
+                    [''],
+                    ['ARSITEKTUR SISTEM:', tech.architecture],
+                    ['DIAGRAM ARSITEKTUR:', tech.architectureDiagram],
+                    [''],
+                    ['=== 4. ANALISIS DAMPAK ==='],
+                    [''],
+                    ['DAMPAK POSITIF:'],
+                    [''],
+                    ['Bagi Pengguna:'],
+                    ...impacts.positive.users.map(impact => ['• ' + impact]),
+                    [''],
+                    ['Bagi Organisasi:'],
+                    ...impacts.positive.organization.map(impact => ['• ' + impact]),
+                    [''],
+                    ['Bagi Masyarakat:'],
+                    ...impacts.positive.society.map(impact => ['• ' + impact]),
+                    [''],
+                    ['DAMPAK NEGATIF & TANTANGAN:'],
+                    [''],
+                    ['Bagi Pengguna:'],
+                    ...impacts.negative.users.map(impact => ['• ' + impact]),
+                    [''],
+                    ['Bagi Organisasi:'],
+                    ...impacts.negative.organization.map(impact => ['• ' + impact]),
+                    [''],
+                    ['Bagi Masyarakat:'],
+                    ...impacts.negative.society.map(impact => ['• ' + impact]),
+                    [''],
+                    ['METRIK DAMPAK:'],
+                    ['Metrik', 'Peningkatan', 'Deskripsi'],
+                    ...impacts.metrics.map(metric => [metric.name, metric.improvement, metric.description]),
+                    [''],
+                    ['=== 5. KESIMPULAN ==='],
+                    [''],
+                    ['RINGKASAN TRANSFORMASI:'],
+                    [conclusion.summary],
+                    [''],
+                    ['MANFAAT UTAMA:'],
+                    ...conclusion.keyBenefits.map(benefit => ['• ' + benefit]),
+                    [''],
+                    ['TANTANGAN IMPLEMENTASI:'],
+                    ...conclusion.challenges.map(challenge => ['• ' + challenge]),
+                    [''],
+                    ['REKOMENDASI:'],
+                    ...conclusion.recommendations.map((rec, i) => [`${i + 1}. ${rec.title}: ${rec.description}`]),
+                    [''],
+                    ['KESIMPULAN AKHIR:'],
+                    [conclusion.finalConclusion],
+                    [''],
+                    ['SKOR TRANSFORMASI DIGITAL:', `${conclusion.digitalScore}%`],
+                    ['GRADE TRANSFORMASI:', conclusion.grade],
+                    [''],
+                    ['=== AKHIR LAPORAN ===']
+                ];
+                
+                const ws = XLSX.utils.aoa_to_sheet(data);
+                
+                // Set column widths
+                ws['!cols'] = [
+                    { width: 50 }, // Column A - wider for descriptions
+                    { width: 50 }, // Column B
+                    { width: 30 }  // Column C
+                ];
+                
+                // Add some basic styling for headers
+                const range = XLSX.utils.decode_range(ws['!ref']);
+                for (let R = range.s.r; R <= range.e.r; ++R) {
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                        const cell_address = XLSX.utils.encode_cell({c: C, r: R});
+                        if (!ws[cell_address]) continue;
+                        
+                        // Style section headers (lines starting with ===)
+                        if (ws[cell_address].v && typeof ws[cell_address].v === 'string' && ws[cell_address].v.startsWith('===')) {
+                            ws[cell_address].s = {
+                                font: { bold: true, sz: 14 },
+                                fill: { fgColor: { rgb: "CCCCCC" } }
+                            };
+                        }
+                    }
+                }
+                
+                XLSX.utils.book_append_sheet(wb, ws, 'Analisis Lengkap');
+                
+                XLSX.writeFile(wb, `Analisis_Lengkap_${studentName.replace(/\s+/g, '_')}.xlsx`);
+                showNotification('File Excel lengkap berhasil diunduh!', 'success');
+                
+            } catch (error) {
+                console.error('Error creating Excel:', error);
+                showNotification('Gagal membuat Excel. Coba lagi.', 'error');
+            }
+        }
+
+        function generateAnalysis(index) {
+            const student = students[index];
+            const oldProc = oldProcedures[index];
+            const newProc = newProcedures[index];
+
+            // Student info
+            const npmDisplay = npmNumbers[index] ? npmNumbers[index] : 'Belum tersedia';
+            document.getElementById('studentInfo').innerHTML = `
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h3 class="text-lg sm:text-xl font-semibold text-blue-800 flex items-center">
+                            ${student}
+                        </h3>
+                        <p class="text-gray-700 text-sm sm:text-base mt-1">NPM: ${npmDisplay}</p>
+                    </div>
+                    <div class="bg-white px-3 sm:px-4 py-2 rounded-lg shadow-sm border border-blue-200">
+                        <p class="text-xs sm:text-sm text-blue-600 font-medium">Status Analisis</p>
+                        <p class="text-sm sm:text-base font-semibold text-green-600">Selesai</p>
+                    </div>
+                </div>
+            `;
+
+            // Generate flowchart
+            generateFlowchart(oldProc, newProc);
+            
+            // Generate problems analysis
+            generateProblems(oldProc, newProc);
+            
+            // Generate technology analysis
+            generateTechnology(newProc);
+            
+            // Generate impact analysis
+            generateImpact(oldProc, newProc);
+            
+            // Generate conclusion
+            generateConclusion(oldProc, newProc);
+        }
+
+        function generateFlowchart(oldProc, newProc) {
+            const flowchartDiv = document.getElementById('flowchart');
+            
+            const oldSteps = getProcessSteps(oldProc, 'manual');
+            const newSteps = getProcessSteps(newProc, 'digital');
+            
+            flowchartDiv.innerHTML = `
+                <div class="print-section">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-6">1. Flowchart Prosedur</h3>
+                    
+                    <div class="grid lg:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="text-lg font-semibold text-red-600 mb-4">Prosedur Lama (Manual)</h4>
+                            <div class="bg-red-50 p-4 rounded-lg">
+                                ${oldSteps.map(step => `
+                                    <div class="flowchart-box border-red-400 bg-red-50">
+                                        ${step}
+                                    </div>
+                                    <div class="arrow"></div>
+                                `).join('')}
+                                <div class="flowchart-box border-red-400 bg-red-100">
+                                    <strong>Selesai</strong>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                                <h5 class="font-semibold text-gray-800 mb-2">Penjelasan Prosedur Lama:</h5>
+                                <p class="text-gray-700 text-sm">${getOldProcedureExplanation(oldProc)}</p>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="text-lg font-semibold text-green-600 mb-4">Prosedur Baru (Berbasis TI)</h4>
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                ${newSteps.map(step => `
+                                    <div class="flowchart-box border-green-400 bg-green-50">
+                                        ${step}
+                                    </div>
+                                    <div class="arrow text-green-600"></div>
+                                `).join('')}
+                                <div class="flowchart-box border-green-400 bg-green-100">
+                                    <strong>Selesai</strong>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                                <h5 class="font-semibold text-gray-800 mb-2">Penjelasan Prosedur Baru:</h5>
+                                <p class="text-gray-700 text-sm">${getNewProcedureExplanation(newProc)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateProblems(oldProc, newProc) {
+            const problemsDiv = document.getElementById('problems');
+            const problems = getProblems(oldProc);
+            
+            problemsDiv.innerHTML = `
+                <div class="print-section">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-6">2. Analisis Masalah dan Kendala</h3>
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="bg-red-50 p-6 rounded-lg border border-red-200">
+                            <h4 class="text-lg font-semibold text-red-700 mb-4">Masalah Prosedur Lama</h4>
+                            <ul class="space-y-3">
+                                ${problems.issues.map(issue => `
+                                    <li class="flex items-start">
+                                        <span class="text-red-500 mr-2">•</span>
+                                        <span class="text-gray-700">${issue}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-orange-50 p-6 rounded-lg border border-orange-200">
+                            <h4 class="text-lg font-semibold text-orange-700 mb-4">Kendala yang Dihadapi</h4>
+                            <ul class="space-y-3">
+                                ${problems.constraints.map(constraint => `
+                                    <li class="flex items-start">
+                                        <span class="text-orange-500 mr-2">•</span>
+                                        <span class="text-gray-700">${constraint}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+                        <h4 class="text-lg font-semibold text-yellow-700 mb-4">Ketidakefisienan</h4>
+                        <div class="grid md:grid-cols-3 gap-4">
+                            ${problems.inefficiencies.map(inefficiency => `
+                                <div class="bg-white p-4 rounded-lg shadow-sm">
+                                    <h5 class="font-semibold text-gray-800 mb-2">${inefficiency.aspect}</h5>
+                                    <p class="text-gray-600 text-sm">${inefficiency.description}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 bg-blue-50 p-6 rounded-lg border border-blue-200">
+                        <h4 class="text-lg font-semibold text-blue-700 mb-4">Perbedaan Utama</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full bg-white rounded-lg shadow-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-gray-700 font-semibold">Aspek</th>
+                                        <th class="px-4 py-3 text-left text-red-700 font-semibold">Prosedur Lama</th>
+                                        <th class="px-4 py-3 text-left text-green-700 font-semibold">Prosedur Baru</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    ${problems.differences.map(diff => `
+                                        <tr>
+                                            <td class="px-4 py-3 font-medium text-gray-800">${diff.aspect}</td>
+                                            <td class="px-4 py-3 text-gray-600">${diff.old}</td>
+                                            <td class="px-4 py-3 text-gray-600">${diff.new}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateTechnology(newProc) {
+            const technologyDiv = document.getElementById('technology');
+            const tech = getTechnologyStack(newProc);
+            
+            technologyDiv.innerHTML = `
+                <div class="print-section">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-6">3. Teknologi yang Terlibat</h3>
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                            <h4 class="text-lg font-semibold text-blue-700 mb-4">
+                                Hardware
+                            </h4>
+                            <ul class="space-y-2">
+                                ${tech.hardware.map(item => `
+                                    <li class="flex items-start">
+                                        <span class="text-blue-500 mr-2">•</span>
+                                        <div>
+                                            <span class="font-medium text-gray-800">${item.name}</span>
+                                            <p class="text-gray-600 text-sm">${item.description}</p>
+                                        </div>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-green-50 p-6 rounded-lg border border-green-200">
+                            <h4 class="text-lg font-semibold text-green-700 mb-4">
+                                Software
+                            </h4>
+                            <ul class="space-y-2">
+                                ${tech.software.map(item => `
+                                    <li class="flex items-start">
+                                        <span class="text-green-500 mr-2">•</span>
+                                        <div>
+                                            <span class="font-medium text-gray-800">${item.name}</span>
+                                            <p class="text-gray-600 text-sm">${item.description}</p>
+                                        </div>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-purple-50 p-6 rounded-lg border border-purple-200">
+                            <h4 class="text-lg font-semibold text-purple-700 mb-4">
+                                Jaringan
+                            </h4>
+                            <ul class="space-y-2">
+                                ${tech.network.map(item => `
+                                    <li class="flex items-start">
+                                        <span class="text-purple-500 mr-2">•</span>
+                                        <div>
+                                            <span class="font-medium text-gray-800">${item.name}</span>
+                                            <p class="text-gray-600 text-sm">${item.description}</p>
+                                        </div>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-orange-50 p-6 rounded-lg border border-orange-200">
+                            <h4 class="text-lg font-semibold text-orange-700 mb-4">
+                                Data
+                            </h4>
+                            <ul class="space-y-2">
+                                ${tech.data.map(item => `
+                                    <li class="flex items-start">
+                                        <span class="text-orange-500 mr-2">•</span>
+                                        <div>
+                                            <span class="font-medium text-gray-800">${item.name}</span>
+                                            <p class="text-gray-600 text-sm">${item.description}</p>
+                                        </div>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 bg-gray-50 p-6 rounded-lg border border-gray-200">
+                        <h4 class="text-lg font-semibold text-gray-700 mb-4">Arsitektur Sistem</h4>
+                        <p class="text-gray-700 mb-4">${tech.architecture}</p>
+                        <div class="bg-white p-4 rounded-lg border-2 border-dashed border-gray-300">
+                            <div class="text-center text-gray-600">
+                                <p class="font-medium">Diagram Arsitektur Sistem</p>
+                                <p class="text-sm mt-2">${tech.architectureDiagram}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateImpact(oldProc, newProc) {
+            const impactDiv = document.getElementById('impact');
+            const impacts = getImpactAnalysis(oldProc, newProc);
+            
+            impactDiv.innerHTML = `
+                <div class="print-section">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-6">4. Analisis Dampak</h3>
+                    
+                    <div class="grid lg:grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="text-lg font-semibold text-green-600 mb-4">
+                                Dampak Positif
+                            </h4>
+                            
+                            <div class="space-y-4">
+                                <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                                    <h5 class="font-semibold text-green-700 mb-2">Bagi Pengguna</h5>
+                                    <ul class="space-y-1">
+                                        ${impacts.positive.users.map(impact => `
+                                            <li class="text-gray-700 text-sm flex items-start">
+                                                <span class="text-green-500 mr-2">•</span>
+                                                ${impact}
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                                
+                                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                    <h5 class="font-semibold text-blue-700 mb-2">Bagi Organisasi</h5>
+                                    <ul class="space-y-1">
+                                        ${impacts.positive.organization.map(impact => `
+                                            <li class="text-gray-700 text-sm flex items-start">
+                                                <span class="text-blue-500 mr-2">•</span>
+                                                ${impact}
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                                
+                                <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                                    <h5 class="font-semibold text-purple-700 mb-2">Bagi Masyarakat</h5>
+                                    <ul class="space-y-1">
+                                        ${impacts.positive.society.map(impact => `
+                                            <li class="text-gray-700 text-sm flex items-start">
+                                                <span class="text-purple-500 mr-2">•</span>
+                                                ${impact}
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="text-lg font-semibold text-red-600 mb-4">
+                                Dampak Negatif & Tantangan
+                            </h4>
+                            
+                            <div class="space-y-4">
+                                <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                                    <h5 class="font-semibold text-red-700 mb-2">
+                                        Bagi Pengguna
+                                    </h5>
+                                    <ul class="space-y-1">
+                                        ${impacts.negative.users.map(impact => `
+                                            <li class="text-gray-700 text-sm flex items-start">
+                                                <span class="text-red-500 mr-2">•</span>
+                                                ${impact}
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                                
+                                <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                                    <h5 class="font-semibold text-orange-700 mb-2">
+                                        Bagi Organisasi
+                                    </h5>
+                                    <ul class="space-y-1">
+                                        ${impacts.negative.organization.map(impact => `
+                                            <li class="text-gray-700 text-sm flex items-start">
+                                                <span class="text-orange-500 mr-2">•</span>
+                                                ${impact}
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                                
+                                <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                                    <h5 class="font-semibold text-yellow-700 mb-2">
+                                        Bagi Masyarakat
+                                    </h5>
+                                    <ul class="space-y-1">
+                                        ${impacts.negative.society.map(impact => `
+                                            <li class="text-gray-700 text-sm flex items-start">
+                                                <span class="text-yellow-500 mr-2">•</span>
+                                                ${impact}
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-8 bg-indigo-50 p-6 rounded-lg border border-indigo-200">
+                        <h4 class="text-lg font-semibold text-indigo-700 mb-4">Metrik Dampak</h4>
+                        <div class="grid md:grid-cols-3 gap-4">
+                            ${impacts.metrics.map(metric => `
+                                <div class="bg-white p-4 rounded-lg shadow-sm">
+                                    <h5 class="font-semibold text-gray-800 mb-1">${metric.name}</h5>
+                                    <p class="text-2xl font-bold text-indigo-600 mb-1">${metric.improvement}</p>
+                                    <p class="text-gray-600 text-sm">${metric.description}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateConclusion(oldProc, newProc) {
+            const conclusionDiv = document.getElementById('conclusion');
+            const conclusion = getConclusionAnalysis(oldProc, newProc);
+            
+            conclusionDiv.innerHTML = `
+                <div class="print-section">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-6">5. Ringkasan dan Kesimpulan</h3>
+                    
+                    <div class="space-y-6">
+                        <div class="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                            <h4 class="text-lg font-semibold text-blue-700 mb-4">
+                                Ringkasan Transformasi
+                            </h4>
+                            <p class="text-gray-700 leading-relaxed">${conclusion.summary}</p>
+                        </div>
+                        
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="bg-green-50 p-6 rounded-lg border border-green-200">
+                                <h4 class="text-lg font-semibold text-green-700 mb-4">Manfaat Utama</h4>
+                                <ul class="space-y-2">
+                                    ${conclusion.keyBenefits.map(benefit => `
+                                        <li class="flex items-start">
+                                            <span class="text-green-500 mr-2"></span>
+                                            <span class="text-gray-700">${benefit}</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-orange-50 p-6 rounded-lg border border-orange-200">
+                                <h4 class="text-lg font-semibold text-orange-700 mb-4">Tantangan Implementasi</h4>
+                                <ul class="space-y-2">
+                                    ${conclusion.challenges.map(challenge => `
+                                        <li class="flex items-start">
+                                            <span class="text-orange-500 mr-2"></span>
+                                            <span class="text-gray-700">${challenge}</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-purple-50 p-6 rounded-lg border border-purple-200">
+                            <h4 class="text-lg font-semibold text-purple-700 mb-4">Rekomendasi</h4>
+                            <div class="grid md:grid-cols-2 gap-4">
+                                ${conclusion.recommendations.map((rec, index) => `
+                                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                                        <h5 class="font-semibold text-gray-800 mb-2">${index + 1}. ${rec.title}</h5>
+                                        <p class="text-gray-600 text-sm">${rec.description}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                            <h4 class="text-lg font-semibold text-gray-700 mb-4">Kesimpulan Akhir</h4>
+                            <p class="text-gray-700 leading-relaxed text-justify">${conclusion.finalConclusion}</p>
+                        </div>
+                        
+                        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 sm:p-6 rounded-xl border border-indigo-200 shadow-sm">
+                            <h4 class="text-base sm:text-lg font-semibold text-indigo-700 mb-3 sm:mb-4">
+                                Skor Transformasi Digital
+                            </h4>
+                            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                                <div class="flex-1">
+                                    <div class="flex justify-between text-xs sm:text-sm text-gray-600 mb-2">
+                                        <span>Tingkat Digitalisasi</span>
+                                        <span class="font-semibold">${conclusion.digitalScore}%</span>
+                                    </div>
+                                    <div class="progress-container">
+                                        <div class="progress-bar" style="width: ${conclusion.digitalScore}%"></div>
+                                    </div>
+                                </div>
+                                <div class="text-center sm:text-right sm:ml-4">
+                                    <p class="text-2xl sm:text-3xl font-bold text-indigo-600">${conclusion.grade}</p>
+                                    <p class="text-xs sm:text-sm text-gray-600 font-medium">Grade Transformasi</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Helper functions for generating content
+        function getProcessSteps(procedure, type) {
+            const stepMappings = {
+                // Academic procedures
+                'Pengisian KRS di loket': ['Datang ke kampus', 'Antri di loket', 'Isi formulir KRS', 'Validasi manual', 'Terima bukti'],
+                'Portal akademik dengan validasi otomatis': ['Login portal', 'Pilih mata kuliah', 'Validasi otomatis', 'Konfirmasi', 'Cetak KRS'],
+                
+                'Bimbingan skripsi via tatap muka': ['Buat janji', 'Datang ke kampus', 'Konsultasi langsung', 'Catat feedback', 'Jadwal ulang'],
+                'Platform bimbingan daring terintegrasi': ['Login platform', 'Pilih jadwal', 'Video conference', 'Rekam sesi', 'Notifikasi otomatis'],
+                
+                'Permintaan surat keterangan via TU': ['Datang ke TU', 'Isi formulir', 'Tunggu proses', 'Ambil surat', 'Verifikasi manual'],
+                'Aplikasi administrasi akademik online': ['Login aplikasi', 'Pilih jenis surat', 'Upload dokumen', 'Proses otomatis', 'Download surat'],
+                
+                'Pengumpulan proposal penelitian fisik': ['Cetak proposal', 'Datang ke kampus', 'Serahkan fisik', 'Terima tanda terima', 'Tunggu review'],
+                'Repository digital penelitian': ['Upload file', 'Isi metadata', 'Review otomatis', 'Publikasi online', 'Tracking status'],
+                
+                // Business procedures
+                'Penjualan hanya offline': ['Buka toko', 'Layani pelanggan', 'Hitung manual', 'Terima pembayaran', 'Catat penjualan'],
+                'E-commerce store': ['Buka aplikasi', 'Browse produk', 'Tambah ke keranjang', 'Checkout online', 'Tracking pengiriman'],
+                
+                'Laporan keuangan via Excel': ['Input data manual', 'Hitung rumus', 'Buat grafik', 'Print laporan', 'Distribusi manual'],
+                'Sistem keuangan berbasis SIPD': ['Input transaksi', 'Proses otomatis', 'Generate laporan', 'Dashboard real-time', 'Export data'],
+                
+                // Healthcare procedures
+                'Konsultasi tatap muka': ['Buat janji', 'Datang ke klinik', 'Antri', 'Konsultasi dokter', 'Terima resep'],
+                'Telemedicine': ['Buka aplikasi', 'Pilih dokter', 'Video call', 'Konsultasi online', 'E-prescription'],
+                
+                'Pelaporan stok obat manual': ['Hitung fisik', 'Catat di buku', 'Hitung manual', 'Buat laporan', 'Submit manual'],
+                'Sistem inventori farmasi': ['Scan barcode', 'Update otomatis', 'Alert stok minimum', 'Laporan real-time', 'Order otomatis'],
+                
+                'Pengawasan gizi manual': ['Timbang manual', 'Catat di kertas', 'Hitung kalori', 'Buat rekomendasi', 'Follow up manual'],
+                'Sistem monitoring gizi digital': ['Input data', 'Analisis AI', 'Rekomendasi otomatis', 'Tracking progress', 'Alert kesehatan'],
+                
+                // Logistics procedures
+                'Pencatatan pengiriman manual': ['Catat di buku', 'Hitung ongkir', 'Buat resi manual', 'Tracking manual', 'Konfirmasi telepon'],
+                'Delivery management app': ['Input order', 'Optimasi rute', 'Real-time tracking', 'Notifikasi otomatis', 'Proof of delivery'],
+                
+                'Evaluasi sopir via supervisor': ['Observasi manual', 'Catat perilaku', 'Interview', 'Buat laporan', 'Feedback manual'],
+                'Smart driver scoring': ['Monitoring GPS', 'Analisis perilaku', 'Scoring otomatis', 'Dashboard performa', 'Alert real-time'],
+                
+                'Pengiriman dokumen manual': ['Cetak dokumen', 'Kirim kurir', 'Tracking manual', 'Konfirmasi telepon', 'Arsip fisik'],
+                'Digital document system': ['Upload dokumen', 'Digital signature', 'Send elektronik', 'Tracking otomatis', 'Arsip digital'],
+                
+                // Security & Home procedures
+                'Menjaga keamanan rumah manual': ['Patroli manual', 'Catat kejadian', 'Lapor via telepon', 'Koordinasi manual', 'Shift bergantian'],
+                'Smart CCTV': ['Monitoring kamera', 'Deteksi otomatis', 'Alert real-time', 'Recording cloud', 'Remote access'],
+                
+                'Pengingat tagihan manual': ['Catat di agenda', 'Cek manual', 'Telepon pelanggan', 'Kirim surat', 'Follow up manual'],
+                'Aplikasi pengingat otomatis': ['Set reminder', 'Notifikasi push', 'Email otomatis', 'SMS gateway', 'Dashboard tagihan'],
+                
+                'Masak berdasarkan resep kertas': ['Baca resep', 'Siapkan bahan', 'Masak manual', 'Cicipi rasa', 'Sesuaikan bumbu'],
+                'Smart recipe app': ['Pilih resep', 'Scan bahan', 'Panduan step-by-step', 'Timer otomatis', 'Nutritional info'],
+                
+                // Waste & Utility procedures
+                'Manajemen sampah manual': ['Kumpulkan sampah', 'Pisah manual', 'Angkut ke TPS', 'Catat volume', 'Lapor manual'],
+                'Sistem pengelolaan sampah digital': ['Scan QR sampah', 'Klasifikasi otomatis', 'Jadwal pickup', 'Tracking volume', 'Reward system'],
+                
+                'Menjemur pakaian manual': ['Cek cuaca', 'Jemur manual', 'Pantau berkala', 'Angkat manual', 'Lipat pakaian'],
+                'Smart drying rack sensor': ['Sensor kelembaban', 'Monitoring cuaca', 'Alert hujan', 'Kontrol otomatis', 'Notifikasi selesai'],
+                
+                // Media & Marketing procedures
+                'Pemesanan iklan via telepon': ['Telepon media', 'Negosiasi harga', 'Kirim materi', 'Konfirmasi manual', 'Bayar offline'],
+                'Online ads management': ['Login platform', 'Set targeting', 'Upload creative', 'Monitor performance', 'Optimasi otomatis'],
+                
+                'Penjadwalan acara manual': ['Catat di agenda', 'Koordinasi telepon', 'Konfirmasi manual', 'Reminder manual', 'Update manual'],
+                'Content calendar digital': ['Input schedule', 'Set reminder', 'Kolaborasi tim', 'Auto-publish', 'Analytics tracking'],
+                
+                'Penulisan naskah di kertas': ['Tulis tangan', 'Edit manual', 'Ketik ulang', 'Print draft', 'Revisi berulang'],
+                'AI writing assistant': ['Input brief', 'Generate draft', 'Edit online', 'Collaboration tools', 'Version control'],
+                
+                // Broadcasting & Analytics procedures
+                'Pemantauan rating manual': ['Catat viewer', 'Hitung manual', 'Buat laporan', 'Analisis manual', 'Presentasi offline'],
+                'Digital analytics dashboard': ['Collect data', 'Process otomatis', 'Real-time dashboard', 'Automated reports', 'Predictive analytics'],
+                
+                'Penyiaran via TV': ['Setup studio', 'Siaran langsung', 'Kontrol manual', 'Monitor kualitas', 'Arsip tape'],
+                'Live streaming multi-platform': ['Setup streaming', 'Multi-platform broadcast', 'Real-time interaction', 'Cloud recording', 'Analytics integration'],
+                
+                // Agriculture procedures
+                'Penjualan hasil panen manual': ['Panen manual', 'Angkut ke pasar', 'Tawar harga', 'Jual langsung', 'Catat pendapatan'],
+                'Digital marketplace petani': ['Upload produk', 'Set harga', 'Terima order', 'Koordinasi pickup', 'Payment digital'],
+                
+                'Prediksi cuaca tradisional': ['Amati alam', 'Gunakan pengalaman', 'Tebak cuaca', 'Rencanakan tanam', 'Risiko tinggi'],
+                'Aplikasi cuaca pertanian': ['Buka aplikasi', 'Lihat forecast', 'Rekomendasi tanam', 'Alert cuaca', 'Planning otomatis'],
+                
+                'Pengelolaan air sawah manual': ['Cek saluran', 'Buka tutup manual', 'Pantau level', 'Koordinasi petani', 'Jadwal manual'],
+                'Smart water management': ['Sensor kelembaban', 'Kontrol otomatis', 'Monitoring real-time', 'Optimasi irigasi', 'Data analytics']
+            };
+            
+            return stepMappings[procedure] || ['Mulai proses', 'Eksekusi', 'Validasi', 'Finalisasi'];
+        }
+
+        function getOldProcedureExplanation(procedure) {
+            const explanations = {
+                'Pengisian KRS di loket': 'Mahasiswa harus datang langsung ke kampus untuk mengisi KRS di loket administrasi dengan mengantri dan mengisi formulir secara manual.',
+                'Bimbingan skripsi via tatap muka': 'Mahasiswa dan dosen harus bertemu secara langsung di kampus untuk melakukan bimbingan skripsi dengan jadwal yang terbatas.',
+                'Permintaan surat keterangan via TU': 'Mahasiswa harus datang ke Tata Usaha untuk mengajukan surat keterangan dengan mengisi formulir dan menunggu proses manual.',
+                'Pengumpulan proposal penelitian fisik': 'Proposal penelitian harus dicetak dan diserahkan secara fisik ke bagian administrasi dengan tanda terima manual.',
+                'Penjualan hanya offline': 'Penjualan produk hanya dapat dilakukan di toko fisik dengan pelayanan langsung dan pencatatan manual.',
+                'Laporan keuangan via Excel': 'Pembuatan laporan keuangan menggunakan Microsoft Excel dengan input data manual dan perhitungan yang rentan error.',
+                'Konsultasi tatap muka': 'Pasien harus datang langsung ke klinik atau rumah sakit untuk berkonsultasi dengan dokter secara tatap muka.',
+                'Pelaporan stok obat manual': 'Penghitungan dan pelaporan stok obat dilakukan secara manual dengan pencatatan di buku atau kertas.',
+                'Pengawasan gizi manual': 'Monitoring status gizi dilakukan dengan penimbangan manual dan pencatatan di kartu kesehatan fisik.',
+                'Pencatatan pengiriman manual': 'Pencatatan pengiriman barang dilakukan di buku besar dengan tracking manual via telepon.',
+                'Evaluasi sopir via supervisor': 'Penilaian kinerja sopir dilakukan oleh supervisor melalui observasi langsung dan wawancara.',
+                'Pengiriman dokumen manual': 'Dokumen dikirim secara fisik menggunakan kurir dengan tracking manual dan konfirmasi telepon.',
+                'Menjaga keamanan rumah manual': 'Keamanan rumah dijaga dengan patroli manual dan sistem keamanan konvensional.',
+                'Pengingat tagihan manual': 'Pengingat pembayaran tagihan dilakukan secara manual melalui telepon atau surat fisik.',
+                'Masak berdasarkan resep kertas': 'Memasak menggunakan resep yang tertulis di kertas dengan takaran dan waktu perkiraan.',
+                'Manajemen sampah manual': 'Pengelolaan sampah dilakukan secara manual dari pengumpulan hingga pembuangan ke TPS.',
+                'Menjemur pakaian manual': 'Proses penjemuran pakaian dilakukan secara manual dengan memantau cuaca dan kondisi pakaian.',
+                'Pemesanan iklan via telepon': 'Pemesanan iklan dilakukan melalui telepon dengan negosiasi dan konfirmasi manual.',
+                'Penjadwalan acara manual': 'Penjadwalan acara dilakukan dengan agenda fisik dan koordinasi melalui telepon.',
+                'Penulisan naskah di kertas': 'Penulisan naskah dilakukan dengan tangan di kertas kemudian diketik ulang di komputer.',
+                'Pemantauan rating manual': 'Pemantauan rating acara TV dilakukan dengan pencatatan manual dan analisis sederhana.',
+                'Penyiaran via TV': 'Penyiaran konten hanya melalui televisi dengan jangkauan terbatas dan interaksi satu arah.',
+                'Penjualan hasil panen manual': 'Penjualan hasil panen dilakukan langsung di pasar tradisional dengan negosiasi harga manual.',
+                'Prediksi cuaca tradisional': 'Prediksi cuaca berdasarkan pengamatan alam dan pengalaman turun temurun yang kurang akurat.',
+                'Pengelolaan air sawah manual': 'Pengaturan irigasi sawah dilakukan manual dengan membuka tutup saluran air secara berkala.'
+            };
+            
+            return explanations[procedure] || 'Prosedur ini dilakukan secara manual dengan keterbatasan teknologi dan efisiensi yang rendah.';
+        }
+
+        function getNewProcedureExplanation(procedure) {
+            const explanations = {
+                'Portal akademik dengan validasi otomatis': 'Sistem portal akademik yang memungkinkan mahasiswa mengisi KRS secara online dengan validasi otomatis dan real-time.',
+                'Platform bimbingan daring terintegrasi': 'Platform digital yang memfasilitasi bimbingan skripsi secara online dengan fitur video conference dan manajemen jadwal.',
+                'Aplikasi administrasi akademik online': 'Aplikasi yang memungkinkan pengajuan surat keterangan secara online dengan proses otomatis dan digital.',
+                'Repository digital penelitian': 'Sistem penyimpanan digital untuk proposal dan hasil penelitian dengan akses online dan pencarian canggih.',
+                'E-commerce store': 'Platform penjualan online yang memungkinkan transaksi 24/7 dengan sistem pembayaran digital terintegrasi.',
+                'Sistem keuangan berbasis SIPD': 'Sistem informasi keuangan yang terintegrasi dengan proses otomatis dan pelaporan real-time.',
+                'Telemedicine': 'Platform konsultasi kesehatan jarak jauh menggunakan teknologi video call dan rekam medis digital.',
+                'Sistem inventori farmasi': 'Sistem manajemen stok obat otomatis dengan barcode scanning dan alert stok minimum.',
+                'Sistem monitoring gizi digital': 'Platform digital untuk memantau status gizi dengan analisis otomatis dan rekomendasi personal.',
+                'Delivery management app': 'Aplikasi manajemen pengiriman dengan tracking real-time dan optimasi rute otomatis.',
+                'Smart driver scoring': 'Sistem penilaian sopir otomatis menggunakan GPS dan sensor untuk monitoring perilaku berkendara.',
+                'Digital document system': 'Sistem manajemen dokumen digital dengan tanda tangan elektronik dan tracking otomatis.',
+                'Smart CCTV': 'Sistem keamanan pintar dengan kamera AI yang dapat mendeteksi aktivitas mencurigakan secara otomatis.',
+                'Aplikasi pengingat otomatis': 'Aplikasi yang memberikan notifikasi otomatis untuk pengingat tagihan dan pembayaran.',
+                'Smart recipe app': 'Aplikasi resep pintar dengan panduan step-by-step, timer otomatis, dan informasi nutrisi.',
+                'Sistem pengelolaan sampah digital': 'Platform digital untuk manajemen sampah dengan tracking, klasifikasi, dan sistem reward.',
+                'Smart drying rack sensor': 'Sistem jemuran pintar dengan sensor cuaca dan kontrol otomatis untuk melindungi pakaian.',
+                'Online ads management': 'Platform manajemen iklan online dengan targeting otomatis dan analisis performa real-time.',
+                'Content calendar digital': 'Sistem penjadwalan konten digital dengan kolaborasi tim dan publikasi otomatis.',
+                'AI writing assistant': 'Asisten penulisan berbasis AI yang membantu menghasilkan dan mengedit naskah secara otomatis.',
+                'Digital analytics dashboard': 'Dashboard analitik digital dengan visualisasi data real-time dan insights otomatis.',
+                'Live streaming multi-platform': 'Platform streaming langsung yang dapat menyiarkan ke multiple platform secara bersamaan.',
+                'Digital marketplace petani': 'Marketplace digital khusus petani untuk menjual hasil panen dengan sistem pembayaran online.',
+                'Aplikasi cuaca pertanian': 'Aplikasi prediksi cuaca khusus pertanian dengan rekomendasi waktu tanam dan panen.',
+                'Smart water management': 'Sistem manajemen air pintar dengan sensor IoT dan kontrol irigasi otomatis.'
+            };
+            
+            return explanations[procedure] || 'Prosedur ini menggunakan teknologi digital untuk meningkatkan efisiensi dan otomatisasi proses.';
+        }
+
+        function getProblems(oldProc) {
+            // Generate problems based on procedure type
+            const commonProblems = {
+                issues: [
+                    'Proses memakan waktu lama dan tidak efisien',
+                    'Rentan terhadap kesalahan manusia (human error)',
+                    'Keterbatasan akses waktu dan lokasi',
+                    'Dokumentasi dan arsip yang mudah hilang',
+                    'Sulit melakukan tracking dan monitoring'
+                ],
+                constraints: [
+                    'Ketergantungan pada kehadiran fisik',
+                    'Jam operasional yang terbatas',
+                    'Kapasitas pelayanan yang rendah',
+                    'Membutuhkan banyak sumber daya manusia',
+                    'Sulit untuk scaling up operasional'
+                ],
+                inefficiencies: [
+                    {
+                        aspect: 'Waktu',
+                        description: 'Proses membutuhkan waktu yang sangat lama karena harus dilakukan secara manual dan berurutan'
+                    },
+                    {
+                        aspect: 'Biaya',
+                        description: 'Biaya operasional tinggi karena membutuhkan banyak tenaga kerja dan resources fisik'
+                    },
+                    {
+                        aspect: 'Akurasi',
+                        description: 'Tingkat kesalahan tinggi karena proses manual dan kurangnya validasi otomatis'
+                    }
+                ],
+                differences: [
+                    {
+                        aspect: 'Kecepatan Proses',
+                        old: 'Lambat, membutuhkan waktu berjam-jam atau berhari-hari',
+                        new: 'Cepat, dapat diselesaikan dalam hitungan menit'
+                    },
+                    {
+                        aspect: 'Aksesibilitas',
+                        old: 'Terbatas waktu dan lokasi tertentu',
+                        new: 'Dapat diakses 24/7 dari mana saja'
+                    },
+                    {
+                        aspect: 'Akurasi Data',
+                        old: 'Rentan kesalahan manual dan duplikasi',
+                        new: 'Validasi otomatis dan data terintegrasi'
+                    },
+                    {
+                        aspect: 'Biaya Operasional',
+                        old: 'Tinggi karena banyak tenaga kerja manual',
+                        new: 'Lebih rendah dengan otomatisasi proses'
+                    },
+                    {
+                        aspect: 'Tracking & Monitoring',
+                        old: 'Sulit dilacak dan dipantau secara real-time',
+                        new: 'Real-time tracking dan monitoring otomatis'
+                    }
+                ]
+            };
+            
+            return commonProblems;
+        }
+
+        function getTechnologyStack(newProc) {
+            // Generate technology stack based on procedure
+            const techStacks = {
+                'Portal akademik dengan validasi otomatis': {
+                    hardware: [
+                        { name: 'Server Web', description: 'Server untuk hosting aplikasi portal akademik' },
+                        { name: 'Database Server', description: 'Server penyimpanan data mahasiswa dan mata kuliah' },
+                        { name: 'Load Balancer', description: 'Distribusi beban traffic untuk performa optimal' }
+                    ],
+                    software: [
+                        { name: 'Framework Web (Laravel/React)', description: 'Framework untuk pengembangan aplikasi web' },
+                        { name: 'Database Management System', description: 'MySQL/PostgreSQL untuk manajemen data' },
+                        { name: 'Authentication System', description: 'Sistem autentikasi dan otorisasi pengguna' }
+                    ],
+                    network: [
+                        { name: 'Internet Connection', description: 'Koneksi internet stabil untuk akses online' },
+                        { name: 'SSL Certificate', description: 'Sertifikat keamanan untuk enkripsi data' },
+                        { name: 'CDN (Content Delivery Network)', description: 'Optimasi kecepatan loading aplikasi' }
+                    ],
+                    data: [
+                        { name: 'Database Mahasiswa', description: 'Data profil dan riwayat akademik mahasiswa' },
+                        { name: 'Database Mata Kuliah', description: 'Informasi mata kuliah dan jadwal' },
+                        { name: 'Log Aktivitas', description: 'Pencatatan semua aktivitas sistem untuk audit' }
+                    ],
+                    architecture: 'Arsitektur sistem menggunakan pola MVC (Model-View-Controller) dengan database terpusat dan interface web responsif.',
+                    architectureDiagram: 'User Interface  Web Server  Application Logic  Database Server  Data Storage'
+                }
+            };
+            
+            // Default tech stack for other procedures
+            const defaultTech = {
+                hardware: [
+                    { name: 'Server Aplikasi', description: 'Server untuk menjalankan aplikasi utama' },
+                    { name: 'Database Server', description: 'Server penyimpanan data sistem' },
+                    { name: 'Mobile Device/PC', description: 'Perangkat akses pengguna' }
+                ],
+                software: [
+                    { name: 'Aplikasi Web/Mobile', description: 'Interface utama untuk pengguna' },
+                    { name: 'Database Management', description: 'Sistem manajemen basis data' },
+                    { name: 'API Gateway', description: 'Pengelola komunikasi antar sistem' }
+                ],
+                network: [
+                    { name: 'Internet/Intranet', description: 'Jaringan komunikasi data' },
+                    { name: 'Security Protocol', description: 'Protokol keamanan data' },
+                    { name: 'Cloud Infrastructure', description: 'Infrastruktur cloud computing' }
+                ],
+                data: [
+                    { name: 'Operational Data', description: 'Data operasional harian sistem' },
+                    { name: 'User Data', description: 'Data profil dan preferensi pengguna' },
+                    { name: 'Analytics Data', description: 'Data untuk analisis dan reporting' }
+                ],
+                architecture: 'Arsitektur sistem berbasis cloud dengan microservices dan API-first approach untuk skalabilitas dan maintainability.',
+                architectureDiagram: 'Client  API Gateway  Microservices  Database  Cloud Storage'
+            };
+            
+            return techStacks[newProc] || defaultTech;
+        }
+
+        function getImpactAnalysis(oldProc, newProc) {
+            return {
+                positive: {
+                    users: [
+                        'Kemudahan akses layanan 24/7 dari mana saja',
+                        'Proses yang lebih cepat dan efisien',
+                        'Pengalaman pengguna yang lebih baik',
+                        'Transparansi informasi dan status real-time',
+                        'Penghematan waktu dan biaya transportasi'
+                    ],
+                    organization: [
+                        'Peningkatan efisiensi operasional',
+                        'Pengurangan biaya operasional jangka panjang',
+                        'Peningkatan kapasitas layanan',
+                        'Data analytics untuk pengambilan keputusan',
+                        'Competitive advantage di era digital'
+                    ],
+                    society: [
+                        'Digitalisasi layanan publik yang lebih baik',
+                        'Pengurangan paper waste (ramah lingkungan)',
+                        'Peningkatan literasi digital masyarakat',
+                        'Aksesibilitas layanan untuk difabel',
+                        'Standarisasi kualitas layanan'
+                    ]
+                },
+                negative: {
+                    users: [
+                        'Kurva pembelajaran untuk adaptasi teknologi',
+                        'Ketergantungan pada koneksi internet',
+                        'Risiko keamanan data dan privasi',
+                        'Digital divide untuk pengguna senior',
+                        'Potensi technical issues dan downtime'
+                    ],
+                    organization: [
+                        'Investasi awal yang besar untuk implementasi',
+                        'Kebutuhan training karyawan',
+                        'Maintenance dan update sistem berkelanjutan',
+                        'Risiko cyber security dan data breach',
+                        'Potensi resistance to change dari karyawan'
+                    ],
+                    society: [
+                        'Pengurangan lapangan kerja manual',
+                        'Digital gap antara generasi',
+                        'Ketergantungan pada teknologi',
+                        'Potensi monopoli platform digital',
+                        'Isu privasi dan surveillance'
+                    ]
+                },
+                metrics: [
+                    {
+                        name: 'Efisiensi Waktu',
+                        improvement: '75%',
+                        description: 'Pengurangan waktu proses'
+                    },
+                    {
+                        name: 'Akurasi Data',
+                        improvement: '90%',
+                        description: 'Peningkatan akurasi'
+                    },
+                    {
+                        name: 'Kepuasan User',
+                        improvement: '85%',
+                        description: 'Tingkat kepuasan pengguna'
+                    }
+                ]
+            };
+        }
+
+        function getConclusionAnalysis(oldProc, newProc) {
+            return {
+                summary: `Transformasi dari "${oldProc}" menjadi "${newProc}" menunjukkan evolusi signifikan dalam pemanfaatan teknologi informasi untuk meningkatkan efisiensi, aksesibilitas, dan kualitas layanan. Perubahan ini tidak hanya mengoptimalkan proses operasional tetapi juga memberikan pengalaman yang lebih baik bagi pengguna.`,
+                
+                keyBenefits: [
+                    'Otomatisasi proses yang mengurangi kesalahan manual',
+                    'Aksesibilitas 24/7 tanpa batasan geografis',
+                    'Real-time monitoring dan tracking',
+                    'Integrasi data untuk decision making yang lebih baik',
+                    'Skalabilitas sistem untuk pertumbuhan masa depan'
+                ],
+                
+                challenges: [
+                    'Investasi infrastruktur teknologi yang signifikan',
+                    'Pelatihan SDM untuk adaptasi sistem baru',
+                    'Manajemen change management yang efektif',
+                    'Keamanan data dan cyber security',
+                    'Maintenance dan support sistem berkelanjutan'
+                ],
+                
+                recommendations: [
+                    {
+                        title: 'Implementasi Bertahap',
+                        description: 'Lakukan implementasi secara bertahap untuk meminimalkan disruption dan memungkinkan adaptasi yang smooth'
+                    },
+                    {
+                        title: 'Training Komprehensif',
+                        description: 'Berikan pelatihan menyeluruh kepada semua stakeholder untuk memastikan adopsi teknologi yang optimal'
+                    },
+                    {
+                        title: 'Security Framework',
+                        description: 'Implementasikan framework keamanan yang robust untuk melindungi data dan sistem'
+                    },
+                    {
+                        title: 'Continuous Improvement',
+                        description: 'Lakukan evaluasi dan improvement berkelanjutan berdasarkan feedback pengguna dan performa sistem'
+                    }
+                ],
+                
+                finalConclusion: 'Transformasi digital ini merupakan langkah strategis yang tepat untuk meningkatkan daya saing dan efisiensi organisasi. Meskipun memerlukan investasi dan adaptasi yang signifikan, manfaat jangka panjang yang diperoleh jauh lebih besar daripada tantangan yang dihadapi. Keberhasilan implementasi sangat bergantung pada perencanaan yang matang, dukungan manajemen, dan komitmen semua pihak untuk beradaptasi dengan perubahan teknologi.',
+                
+                digitalScore: Math.floor(Math.random() * 20) + 80, // Random score between 80-100
+                grade: ['A', 'A-', 'B+'][Math.floor(Math.random() * 3)]
+            };
+        }
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9963cd708385252c',t:'MTc2MTc1Mjc1My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
